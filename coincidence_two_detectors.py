@@ -1,0 +1,90 @@
+import uproot
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import awkward as ak
+
+# CONSTANTS
+SOURCE_ENERGIES_KEV = [200, 2000, 10000]
+ORIENTATIONS = [90, 180]
+
+TREE_KEYS = ["SToGS;1", "SToGS;2"]
+
+BIN_MAP = { # used for histogram displays
+    200:  np.linspace(0, 0.2, 500),
+    2000: np.linspace(0, 2, 500),
+    10000: np.linspace(0, 11, 500),
+}
+
+fig, ax = plt.subplots(len(SOURCE_ENERGIES_KEV), 2)
+
+
+# DATA
+for orient_idx, orientation in enumerate(ORIENTATIONS):
+    for row_idx, energy_kev in enumerate(SOURCE_ENERGIES_KEV): # one plot (two detectors) per iteration
+
+        # FILE NAMING DEFINITION
+        filename = f"two_tubes//two_{orientation}_{energy_kev}.root"
+        print(f"Processing file: {filename}...")
+
+        if not os.path.exists(filename):
+            print(f"WARNING: File not found: {filename}. Skipping this energy.")
+            continue
+        ''''
+        # arraye do klejenia dwóch drzewek
+    
+        all_data_EvH = []
+        all_data_UID = []
+        current_bins = BIN_MAP.get(energy_kev, np.linspace(0, 10, 500))
+        '''
+        for tree_key in TREE_KEYS:
+
+            # arraye do energi na jeden symulacje
+            sum_EvE_0 = []
+            sum_EvE_1 = []
+
+            print(f"Processing tree: {tree_key}...")
+
+            tree = uproot.open(filename)[tree_key]
+            EvE   = tree["Ev.E"].array()     # jagged array: shape (events, hits)
+            EvUID = tree["Ev.UID"].array()   # jagged array: same structure
+
+            # Create event-level masks for UID == 0 and UID == 1
+            mask0 = EvUID == 0
+            mask1 = EvUID == 1
+
+            # Apply the masks and compute per-event sums (vectorized)
+            sum_EvE_0 = ak.sum(EvE[mask0], axis=1)
+            sum_EvE_1 = ak.sum(EvE[mask1], axis=1)
+
+            # deleting NON coincidence
+            mask = (sum_EvE_0 != 0) & (sum_EvE_1 != 0)
+
+            sum_EvE_0 = sum_EvE_0[mask]
+            sum_EvE_1 = sum_EvE_1[mask]
+            # n o coincidence
+            n_co = ak.sum(mask) 
+
+            '''''
+            EvH = tree["Ev.H"].array()
+            flat = EvH.to_list()
+            all_data_EvH.append(flat)
+
+            # UID extraction
+            UID = tree["Ev.UID"].array()
+            flatU = UID.to_list()
+            all_data_UID.append(flatU)
+            '''
+
+        # Plotting the histograms
+        ax[row_idx,orient_idx].scatter(sum_EvE_0, sum_EvE_1, color='green', linewidth=0.5)
+        ax[row_idx,orient_idx].set_title(f"{energy_kev / 1000} MeV Source, detector's relative orientation: {orientation}, number of coincidence: {n_co}", fontsize=10)
+        ax[row_idx,orient_idx].grid(True, alpha=0.5)       
+        
+
+
+fig.suptitle(f"Coincidence", fontsize=14, y=0.98)
+print("Processing done, witing for plots...")
+# --- 5. Final Display ---
+
+plt.show()
