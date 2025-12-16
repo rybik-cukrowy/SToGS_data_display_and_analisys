@@ -6,7 +6,7 @@ import awkward as ak
 
 # CONSTANTS
 SOURCE_ENERGIES_KEV = [200, 2000, 10000]
-ORIENTATIONS = [90, 180]
+ORIENTATIONS = [0, 90, 180]
 
 TREE_KEYS = ["SToGS;1", "SToGS;2"]
 
@@ -16,7 +16,8 @@ BIN_MAP = { # used for histogram displays
     10000: np.linspace(0, 11, 500),
 }
 
-fig, ax = plt.subplots(len(SOURCE_ENERGIES_KEV), 2)
+fig, ax = plt.subplots(len(SOURCE_ENERGIES_KEV), len(ORIENTATIONS))
+fig.subplots_adjust(hspace=0.4)
 
 
 # DATA
@@ -49,6 +50,16 @@ for orient_idx, orientation in enumerate(ORIENTATIONS):
             EvE   = tree["Ev.E"].array()     # jagged array: shape (events, hits)
             EvUID = tree["Ev.UID"].array()   # jagged array: same structure
 
+            #------experoent----- # works
+            has0 = ak.any(EvUID == 0, axis=1)
+            has1 = ak.any(EvUID == 1, axis=1)
+
+            coinc_mask = has0 & has1
+
+            EvE   = EvE[coinc_mask]
+            EvUID = EvUID[coinc_mask]
+            #--------------------
+
             # Create event-level masks for UID == 0 and UID == 1
             mask0 = EvUID == 0
             mask1 = EvUID == 1
@@ -77,9 +88,11 @@ for orient_idx, orientation in enumerate(ORIENTATIONS):
             '''
 
         # Plotting the histograms
-        ax[row_idx,orient_idx].scatter(sum_EvE_0, sum_EvE_1, color='green', linewidth=0.5)
-        ax[row_idx,orient_idx].set_title(f"{energy_kev / 1000} MeV Source, detector's relative orientation: {orientation}, number of coincidence: {n_co}", fontsize=10)
-        ax[row_idx,orient_idx].grid(True, alpha=0.5)       
+        ax[row_idx,orient_idx].scatter(sum_EvE_0, sum_EvE_1, color='green', s=5)
+        ax[row_idx,orient_idx].set_title(f"{energy_kev / 1000} MeV, Relative orientation: {orientation}, number of coincidence: {n_co}", fontsize=10)
+        ax[row_idx,orient_idx].grid(True, alpha=0.5)
+        ax[row_idx,orient_idx].set_ylabel("E1")
+        ax[row_idx,orient_idx].set_xlabel("E0")       
         
 
 
