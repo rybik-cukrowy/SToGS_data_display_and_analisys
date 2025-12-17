@@ -31,13 +31,7 @@ for orient_idx, orientation in enumerate(ORIENTATIONS):
         if not os.path.exists(filename):
             print(f"WARNING: File not found: {filename}. Skipping this energy.")
             continue
-        ''''
-        # arraye do klejenia dwóch drzewek
-    
-        all_data_EvH = []
-        all_data_UID = []
-        current_bins = BIN_MAP.get(energy_kev, np.linspace(0, 10, 500))
-        '''
+        
         for tree_key in TREE_KEYS:
 
             # arraye do energi na jeden symulacje
@@ -75,17 +69,6 @@ for orient_idx, orientation in enumerate(ORIENTATIONS):
             sum_EvE_1 = sum_EvE_1[mask]
             # n o coincidence
             n_co = ak.sum(mask) 
-
-            '''''
-            EvH = tree["Ev.H"].array()
-            flat = EvH.to_list()
-            all_data_EvH.append(flat)
-
-            # UID extraction
-            UID = tree["Ev.UID"].array()
-            flatU = UID.to_list()
-            all_data_UID.append(flatU)
-            '''
 
         # Plotting the histograms
         ax[row_idx,orient_idx].scatter(sum_EvE_0, sum_EvE_1, color='green', s=5)
