@@ -1,0 +1,60 @@
+import uproot
+import numpy as np
+import matplotlib.pyplot as plt
+import os
+import awkward as ak
+from matplotlib.ticker import FuncFormatter
+
+
+def FWHM2sdd(FWHM):
+    '''Function to convert FWHM to standard deviation '''
+    return FWHM / (2 * np.sqrt(2 * np.log(2)))
+
+def gaussian(t, mu, sigma, amplitude):
+    '''time vector, center (time data), standard deviation, energy hit data '''
+    return amplitude * np.exp(-(t - mu)**2 / (2 * sigma**2))
+
+# --- File and Tree ---
+ROOT_FILE_PATH = "two_tubes//two_90_2000.root"
+TREE_NAME = "SToGS;1"
+BRANCH_NAME1 = "Ev.E"
+BRANCH_NAME2 = "Ev.T"
+fig, ax = plt.subplots()
+# --- Open ROOT file ---
+with uproot.open(ROOT_FILE_PATH) as file:
+    tree = file[TREE_NAME]
+
+    EVENT_NUMBER = 93
+    EvUID = tree["Ev.UID"].array()
+    #print(EvUID[EVENT_NUMBER])
+    # --- Read the branch as an awkward array ---
+    energies = tree[BRANCH_NAME1].array()  
+    e_test = np.array(energies[EVENT_NUMBER]) 
+    times = tree[BRANCH_NAME2].array()
+    t_test = np.array(times[EVENT_NUMBER])
+
+    
+
+    time_vector = np.linspace(ak.min(t_test)-0.01, ak.max(t_test)+0.01, num=1000) 
+
+    # matrix to store gaussians for the one event
+    gaussian_matrix = np.zeros((len(e_test), len(time_vector)))
+
+    FWHM = (77.11212 * (e_test*1000)**(-0.5) * e_test)/100 * t_test
+    sigma = np.vectorize(FWHM2sdd)(FWHM)
+
+    for i in range(len(t_test)):
+        gaussian_matrix[i, :] = gaussian(time_vector, t_test[i], sigma[i], e_test[i])
+        
+    ax.plot(time_vector, gaussian_matrix.T)
+
+    ax.scatter(t_test, e_test, marker='*', color="lime", label = "simulation datapoints")
+    out = gaussian_matrix.sum(axis=0)
+    ax.plot(time_vector,out, label="sum of hits", color="b")
+    ax.legend()
+    ax.set_xlabel("event time  [ns]")
+    ax.set_ylabel("hit energy [MeV]")
+    ax.set_title("Rozmycie depozytów energii")
+
+
+plt.show()
