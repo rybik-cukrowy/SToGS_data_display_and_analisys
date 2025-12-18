@@ -1,60 +1,96 @@
 import uproot
 import numpy as np
 import matplotlib.pyplot as plt
-import os
 import awkward as ak
-from matplotlib.ticker import FuncFormatter
+import os
 
-
-def FWHM2sdd(FWHM):
-    '''Function to convert FWHM to standard deviation '''
+# Functions
+def FWHM2sigma(FWHM):
+    """Convert FWHM to standard deviation."""
     return FWHM / (2 * np.sqrt(2 * np.log(2)))
 
-def gaussian(t, mu, sigma, amplitude):
-    '''time vector, center (time data), standard deviation, energy hit data '''
-    return amplitude * np.exp(-(t - mu)**2 / (2 * sigma**2))
+# CONSTANTS
+SOURCE_ENERGIES_KEV = [200, 2000, 10000]
+ORIENTATIONS = [0, 90, 180]
 
-# --- File and Tree ---
-ROOT_FILE_PATH = "two_tubes//two_90_2000.root"
-TREE_NAME = "SToGS;1"
-BRANCH_NAME1 = "Ev.E"
-BRANCH_NAME2 = "Ev.T"
-fig, ax = plt.subplots()
-# --- Open ROOT file ---
-with uproot.open(ROOT_FILE_PATH) as file:
-    tree = file[TREE_NAME]
+TREE_KEYS = ["SToGS;1", "SToGS;2"]
 
-    EVENT_NUMBER = 93
-    EvUID = tree["Ev.UID"].array()
-    #print(EvUID[EVENT_NUMBER])
-    # --- Read the branch as an awkward array ---
-    energies = tree[BRANCH_NAME1].array()  
-    e_test = np.array(energies[EVENT_NUMBER]) 
-    times = tree[BRANCH_NAME2].array()
-    t_test = np.array(times[EVENT_NUMBER])
+BIN_MAP = { # used for histogram displays
+    200:  np.linspace(0, 0.2, 500),
+    2000: np.linspace(0, 2, 500),
+    10000: np.linspace(0, 11, 500),
+}
 
-    
+fig, ax = plt.subplots(len(SOURCE_ENERGIES_KEV), len(ORIENTATIONS))
+fig.subplots_adjust(hspace=0.4)
 
-    time_vector = np.linspace(ak.min(t_test)-0.01, ak.max(t_test)+0.01, num=1000) 
 
-    # matrix to store gaussians for the one event
-    gaussian_matrix = np.zeros((len(e_test), len(time_vector)))
+# DATA
+for orient_idx, orientation in enumerate(ORIENTATIONS):
+    for row_idx, energy_kev in enumerate(SOURCE_ENERGIES_KEV): # one plot (two detectors) per iteration
 
-    FWHM = (77.11212 * (e_test*1000)**(-0.5) * e_test)/100 * t_test
-    sigma = np.vectorize(FWHM2sdd)(FWHM)
+        # FILE NAMING DEFINITION
+        filename = f"two_tubes//two_{orientation}_{energy_kev}.root"
+        print(f"Processing file: {filename}...")
 
-    for i in range(len(t_test)):
-        gaussian_matrix[i, :] = gaussian(time_vector, t_test[i], sigma[i], e_test[i])
+        if not os.path.exists(filename):
+            print(f"WARNING: File not found: {filename}. Skipping this energy.")
+            continue
         
-    ax.plot(time_vector, gaussian_matrix.T)
+        for tree_key in TREE_KEYS:
 
-    ax.scatter(t_test, e_test, marker='*', color="lime", label = "simulation datapoints")
-    out = gaussian_matrix.sum(axis=0)
-    ax.plot(time_vector,out, label="sum of hits", color="b")
-    ax.legend()
-    ax.set_xlabel("event time  [ns]")
-    ax.set_ylabel("hit energy [MeV]")
-    ax.set_title("Rozmycie depozytów energii")
+            # part that is acrually doing something
+            with uproot.open(filename) as file:
+                tree = file[tree_key]
 
+                EvH = tree["Ev.H"].array()  # energies of hits
+                Evnb = tree["Ev.nb"].array()  # number of hits per event
+            
+            
+            # Flatten all hits across all events
+            E_hits = EvH
+
+            # --- Compute FWHM and sigma for each hit ---
+            FWHM_percent = 77.11212 * (E_hits*1000)**(-0.5)
+            FWHM_abs = FWHM_percent / 100 * E_hits
+            sigma_hits = FWHM2sigma(FWHM_abs)
+
+            # --- Apply Gaussian smearing to each hit ---
+            E_smeared = np.random.normal(E_hits, sigma_hits)
+
+                      
+        
+
+
+        bins = np.linspace(0.01, energy_kev/1000, 500)
+        # Plotting the histograms
+        ax[row_idx,orient_idx].hist(E_hits, bins=bins, color='red', label="nierozmyte", histtype='step')
+        ax[row_idx,orient_idx].hist(E_smeared, bins=bins, color='green', label="rozmyte", histtype='step')
+        ax[row_idx,orient_idx].set_title(f"{energy_kev / 1000} MeV, Relative orientation: {orientation}, Smear and no smear", fontsize=10)
+        ax[row_idx,orient_idx].grid(True, alpha=0.5)
+        ax[row_idx,orient_idx].set_ylabel("Counts")
+        ax[row_idx,orient_idx].set_xlabel("Energy [MeV]")   
+        ax[row_idx,orient_idx].legend()   
+        ax[row_idx,orient_idx].set_yscale('log')  
+        
+
+
+fig.suptitle(f"Coincidence", fontsize=14, y=0.98)
+print("Processing done, witing for plots...")
+# --- 5. Final Display ---
 
 plt.show()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
